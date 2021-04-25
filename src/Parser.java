@@ -1,15 +1,9 @@
-import org.w3c.dom.*;
+ort org.w3c.dom.*;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.TransformerFactoryConfigurationError;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -25,8 +19,8 @@ public class Parser {
 
         FileInputStream fileInputStream = null;
         try {
-            String input = System.getenv("input");
-            fileInputStream = new FileInputStream(input);
+            String Input = System.getenv("Input");
+            fileInputStream = new FileInputStream(Input);
         } catch (NullPointerException e) {
             System.out.println("Cant find env variable");
             System.exit(0);
@@ -45,9 +39,15 @@ public class Parser {
         BufferedReader r = new BufferedReader(
                 new InputStreamReader(bf, StandardCharsets.UTF_8));
 
-        xmlString = r.readLine();
 
 
+        String x;
+
+        while((x=r.readLine())!=null){
+
+            xmlString+=x;
+            xmlString+=System.lineSeparator();
+        }
 
         Vector<Ticket> TicketCollection = new Vector<>();
         LocalDateTime data = LocalDateTime.now();
@@ -154,16 +154,17 @@ public class Parser {
      * @param fromScript variable that indicates source of commands
      * @throws ParserConfigurationException if problems with parsing script
      */
-    public static void processingCommands(Scanner scanner, Vector<Ticket> TicketCollection, boolean fromScript, LocalDateTime date) throws  ParserConfigurationException {
+    public static void processingCommands(Scanner scanner, Vector<Ticket> TicketCollection, boolean fromScript, LocalDateTime date) throws ParserConfigurationException, IOException {
         boolean exitStatus = false;
         while (!exitStatus){
             String[] text = null;
             if (scanner.hasNext()){
-                text = scanner.nextLine().replaceAll("^\\s+", "").split(" ", 2);
+                    text = scanner.nextLine().replaceAll("^\\s+", "").split(" ", 2);
             } else {
                 System.exit(0);
             }
             String command = text[0];
+
             String argument;
             try{
                 argument = text[1];
@@ -171,32 +172,6 @@ public class Parser {
                 argument = null;
             }
             switch (command) {
-                case ("save"):
-                    Document newDocument = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
-                    Element rootElement = newDocument.createElement("Ticket");
-                    newDocument.appendChild(rootElement);
-                    for (Ticket ticket : TicketCollection) {
-                        Element ticketfield = newDocument.createElement("ticket");
-                        rootElement.appendChild(ticketfield);
-                        ticketfield.setAttribute("id", ticket.getId().toString());
-                        ticketfield.setAttribute("name", ticket.getName());
-                        String coordinatesField = ticket.getCoords().getX() + " " + ticket.getCoords().getY();
-                        ticketfield.setAttribute("coordinates", coordinatesField);
-
-                        ticketfield.setAttribute("eventid", ticket.event.getIdTicket().toString());
-                        ticketfield.setAttribute("eventname", ticket.event.getNameTicket());
-                        ticketfield.setAttribute("eventage", ticket.event.getMinAge().toString());
-                        ticketfield.setAttribute("eventcount", ticket.event.getTicketsCount().toString());
-                        ticketfield.setAttribute("eventtype", ticket.event.getEventType().toString());
-
-                        ticketfield.setAttribute("creation_date", ticket.getCreationDate().toString());
-                        String typeField = ticket.type.toString();
-                        ticketfield.setAttribute("type", typeField);
-                        ticketfield.setAttribute("price", Double.toString(ticket.getPrice()));
-                    }
-                    writeDocument(newDocument, System.getenv("output"));
-                    System.out.println("The command was executed");
-                    break;
                 case ("help"):
                     if (argument != null) System.out.println("'help' command was detected");
                     System.out.println(
@@ -225,6 +200,43 @@ public class Parser {
                     for (Ticket ticket : TicketCollection){
                         System.out.println(ticket.toString());
                     }
+                    break;
+                case ("save"):
+                    File Output = null;
+                    Scanner scan = null;
+                    try {
+                        Output = new File(System.getenv("Output"));      // проверка на наличие переменной окружения
+                         scan = new Scanner(Output);
+                    } catch (NullPointerException e) {
+                        System.out.println("Cant find env variable");
+                        System.exit(0);
+                    }catch (FileNotFoundException e) {   // неправильный путь к файлу или нет доступа на чтение
+                        System.out.println("File not found");
+                        System.exit(0);
+                    }
+                    FileWriter writter = new FileWriter(Output);
+                    writter.write("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n" + "<Ticket>\n");
+                    for (Ticket ticket : TicketCollection){
+                        String id =  ticket.getId().toString();
+                        String name = ticket.getName();
+                        String coordinates = ticket.getCoords().getX() + " " + ticket.getCoords().getY();
+
+
+                        String idevent = ticket.event.getIdTicket().toString();
+                        String eventname = ticket.event.getNameTicket();
+                        String eventage = ticket.event.getMinAge().toString();
+                        String eventcount = ticket.event.getTicketsCount().toString();
+                        String eventtype = ticket.event.getEventType().toString();
+                        String ticketdate = ticket.getCreationDate().toString();
+                        String typeField = ticket.type.toString();
+                        String price = Double.toString(ticket.getPrice());
+                        writter.write("<ticket " + "id='"+id+"'"+" name='"+name+"' "+"coordinates='"+coordinates+"' "+"eventid='"+idevent+"' "
+                        + "eventname='"+eventname+"' "+" eventage='"+eventage+"' "+" eventcount='"+eventcount+"' "+" eventtype='"+eventtype+"' "
+                        +" creation_date='"+ticketdate+"' "+" type='"+typeField+"' "+" price='"+price+"' "+" />\n");
+                    }
+                    writter.write("</Ticket>");
+                    writter.close();
+                    System.out.println("The command was executed");
                     break;
                 case ("update"):
                     try {
@@ -368,39 +380,12 @@ public class Parser {
                     exitStatus = true;
                     System.out.println("The command was executed");
                     break;
+                case ("")    :
+                    System.out.println("Empty space...");
+                    break;
                 default:
                     System.out.println("Invalid command. Try 'help' to see list of commands");
             }
-        }
-    }
-    /**
-     * Method that transforms Document format to xml string and writes it in file
-     * @param document Document to write
-     * @param path Path to file
-     * @throws TransformerFactoryConfigurationError if error in transforming
-     */
-    public static void writeDocument(Document document, String path) throws TransformerFactoryConfigurationError {
-        Transformer transformer;
-        DOMSource domSource;
-        FileWriter stream;
-        try {
-            transformer = TransformerFactory.newInstance().newTransformer();
-            domSource = new DOMSource(document);
-            String output = path;
-            File file = new File(path);
-            if (file.canWrite()) {
-                stream = new FileWriter(output);
-                StreamResult result = new StreamResult(stream);
-                transformer.transform(domSource, result);
-            } else {
-                System.out.println("Permission to edit file denied");
-            }
-        } catch (TransformerException e) {
-            e.printStackTrace(System.out);
-        } catch (FileNotFoundException e){
-            System.out.println("File not found. Try again");
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
     /**
